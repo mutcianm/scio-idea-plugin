@@ -36,6 +36,7 @@ import scala.collection.mutable
 import com.intellij.notification.Notifications
 import com.intellij.notification.Notification
 import com.intellij.notification.NotificationType
+import scala.collection.immutable.ArraySeq
 
 object ScioInjector {
   private val Log = Logger.getInstance(classOf[ScioInjector])
@@ -156,7 +157,7 @@ object ScioInjector {
           .flatMap(propsStr => {
             val propsSplit = propsStr.split(",")
             // We need to fix the split since Map types contain ',' as a part of their type declaration
-            val props = mutable.ArrayStack[String]()
+            val props = mutable.Stack[String]()
             for (prop <- propsSplit) {
               if (prop.contains(" : ")) {
                 props += prop
@@ -165,9 +166,10 @@ object ScioInjector {
                 props += props.pop() + "," + prop
               }
             }
-            props.result.toList
+            props.toList
           })
       )
+      .map(ArraySeq.unsafeWrapArray)
       .map(ConstructorProps(_)) // get individual parameter
   }
 
@@ -289,13 +291,14 @@ final class ScioInjector extends SyntheticMembersInjector {
         findClassFile(s"${c.getName}-$h.scala")
       }
       .map { f =>
-        import collection.JavaConverters._
+        import scala.jdk.CollectionConverters._
         Files
           .readLines(f, Charset.defaultCharset())
           .asScala
           .filter(_.contains("case class"))
       }
       .getOrElse(Seq.empty)
+      .toSeq
   }
 
   private def findClassFile(fileName: String): Option[java.io.File] = {
